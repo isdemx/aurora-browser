@@ -33,6 +33,7 @@ class BrowserPage extends StatefulWidget {
 class _BrowserPageState extends State<BrowserPage> {
   /// Контроллер WebView (из пакета `webview_flutter`).
   late final WebViewController _webViewController;
+  double _progress = 0; // от 0 до 100
 
   /// Текстовый контроллер для адресной строки.
   final TextEditingController _addressBarController =
@@ -63,10 +64,51 @@ class _BrowserPageState extends State<BrowserPage> {
             }
           },
           onProgress: (int progress) {
+            setState(() {
+              _progress = progress.toDouble();
+            });
             debugPrint('Page Load: $progress%');
           },
           onNavigationRequest: (request) {
             return NavigationDecision.navigate;
+          },
+          onWebResourceError: (WebResourceError error) {
+            // Загружаем простую HTML-страницу с текстом "404 Page not found"
+            _webViewController.loadHtmlString('''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>404 Page not found</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    p {
+      font-size: 1.5rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h1>404 - Page not found</h1>
+  <p>The requested page does not exist or could not be loaded.</p>
+</body>
+</html>
+''');
           },
         ),
       )
@@ -122,10 +164,13 @@ class _BrowserPageState extends State<BrowserPage> {
   void _goToUrl() {
     var url = _addressBarController.text.trim();
 
-    // Если пользователь не ввёл протокол — добавим https://
-    if (!url.startsWith('http')) {
-      url = 'https://$url';
+    // Если пользователь не ввёл ни http:// ни https://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'http://$url';
+      // Либо меняйте логику по желанию:
+      // например сначала пытаетесь http://, а при неудаче — https:// и т.д.
     }
+
     _webViewController.loadRequest(Uri.parse(url));
   }
 
@@ -245,7 +290,17 @@ class _BrowserPageState extends State<BrowserPage> {
       ),
 
       /// Сам WebView на всю оставшуюся часть экрана.
-      body: WebViewWidget(controller: _webViewController),
+      body: Column(
+        children: [
+          // Прогресс-бар (показывается, если загрузка < 100%)
+          if (_progress < 100) LinearProgressIndicator(value: _progress / 100),
+
+          // Расширяемый контейнер с WebView
+          Expanded(
+            child: WebViewWidget(controller: _webViewController),
+          ),
+        ],
+      ),
 
       /// Плавающая кнопка справа снизу - включает/выключает Wakelock.
       floatingActionButton: FloatingActionButton(
