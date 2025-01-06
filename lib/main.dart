@@ -34,6 +34,8 @@ class _BrowserPageState extends State<BrowserPage> {
   /// Контроллер WebView (из пакета `webview_flutter`).
   late final WebViewController _webViewController;
   double _progress = 0; // от 0 до 100
+  double _buttonPosition =
+      0.8; // Начальная позиция кнопки по вертикали (0.0 сверху, 1.0 снизу).
 
   /// Текстовый контроллер для адресной строки.
   final TextEditingController _addressBarController =
@@ -192,10 +194,14 @@ class _BrowserPageState extends State<BrowserPage> {
     showModalBottomSheet<void>(
       context: context,
       builder: (BuildContext ctx) {
+        // Фильтруем список, исключая "about:blank"
+        final filteredHistory =
+            _history.where((url) => url != 'about:blank').toList();
+
         return ListView.builder(
-          itemCount: _history.length,
+          itemCount: filteredHistory.length,
           itemBuilder: (context, index) {
-            final url = _history[index];
+            final url = filteredHistory[index];
             return ListTile(
               title: Text(url),
               onTap: () {
@@ -247,11 +253,11 @@ class _BrowserPageState extends State<BrowserPage> {
               onPressed: _goForward,
               tooltip: 'Forward',
             ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _reloadPage,
-              tooltip: 'Refresh',
-            ),
+            // IconButton(
+            //   icon: const Icon(Icons.refresh),
+            //   onPressed: _reloadPage,
+            //   tooltip: 'Refresh',
+            // ),
             Expanded(
               child: TextField(
                 controller: _addressBarController,
@@ -290,24 +296,56 @@ class _BrowserPageState extends State<BrowserPage> {
       ),
 
       /// Сам WebView на всю оставшуюся часть экрана.
-      body: Column(
+      body: Stack(
         children: [
-          // Прогресс-бар (показывается, если загрузка < 100%)
-          if (_progress < 100) LinearProgressIndicator(value: _progress / 100),
-
-          // Расширяемый контейнер с WebView
-          Expanded(
-            child: WebViewWidget(controller: _webViewController),
+          Column(
+            children: [
+              if (_progress < 100)
+                LinearProgressIndicator(value: _progress / 100),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _reloadPage, // Функция обновления
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height,
+                      child: WebViewWidget(controller: _webViewController),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Перетаскиваемая кнопка
+          Positioned(
+            top: _buttonPosition * MediaQuery.of(context).size.height -
+                30, // Центр кнопки
+            right: 16,
+            child: GestureDetector(
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  _buttonPosition +=
+                      details.delta.dy / MediaQuery.of(context).size.height;
+                  _buttonPosition =
+                      _buttonPosition.clamp(0.0, 1.0); // Ограничиваем область
+                });
+              },
+              child: FloatingActionButton(
+                onPressed: _toggleWakelock,
+                tooltip: 'Wakelock',
+                child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
+              ),
+            ),
           ),
         ],
       ),
 
-      /// Плавающая кнопка справа снизу - включает/выключает Wakelock.
-      floatingActionButton: FloatingActionButton(
-        onPressed: _toggleWakelock,
-        tooltip: 'Wakelock',
-        child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
-      ),
+      // /// Плавающая кнопка справа снизу - включает/выключает Wakelock.
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: _toggleWakelock,
+      //   tooltip: 'Wakelock',
+      //   child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
+      // ),
     );
   }
 }
