@@ -253,11 +253,11 @@ class _BrowserPageState extends State<BrowserPage> {
               onPressed: _goForward,
               tooltip: 'Forward',
             ),
-            // IconButton(
-            //   icon: const Icon(Icons.refresh),
-            //   onPressed: _reloadPage,
-            //   tooltip: 'Refresh',
-            // ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _reloadPage,
+              tooltip: 'Refresh',
+            ),
             Expanded(
               child: TextField(
                 controller: _addressBarController,
