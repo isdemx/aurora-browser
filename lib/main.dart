@@ -166,7 +166,7 @@ class _BrowserPageState extends State<BrowserPage> {
 
     // Если пользователь не ввёл ни http:// ни https://
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'http://$url';
+      url = 'https://$url';
       // Либо меняйте логику по желанию:
       // например сначала пытаетесь http://, а при неудаче — https:// и т.д.
     }
