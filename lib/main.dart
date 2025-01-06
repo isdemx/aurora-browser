@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Browser Demo',
+      title: 'Aurora Browser',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const BrowserPage(),
     );
@@ -36,7 +36,7 @@ class _BrowserPageState extends State<BrowserPage> {
 
   /// Текстовый контроллер для адресной строки.
   final TextEditingController _addressBarController =
-      TextEditingController(text: 'https://flutter.dev');
+      TextEditingController(text: 'info');
 
   /// Храним, включён ли Wakelock (true = экран не гаснет).
   bool _isWakelockEnabled = false;
@@ -50,40 +50,72 @@ class _BrowserPageState extends State<BrowserPage> {
 
     // Создаём WebViewController и настраиваем его.
     _webViewController = WebViewController()
-      // Разрешаем JavaScript, если нужно.
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      // Подписываемся на колбэки навигации.
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            // Когда страница начинает грузиться, обновляем адрес в TextField
-            // (можно делать и в onPageFinished, но так реагируем быстрее).
             _addressBarController.text = url;
           },
           onPageFinished: (url) {
-            // После окончания загрузки страницы обновляем адрес.
             _addressBarController.text = url;
-
-            // Добавляем URL в историю, если его там ещё нет,
-            // или если это новый переход.
             if (_history.isEmpty || _history.last != url) {
               _history.add(url);
             }
           },
           onProgress: (int progress) {
-            debugPrint('Загрузка страницы: $progress%');
+            debugPrint('Page Load: $progress%');
           },
           onNavigationRequest: (request) {
-            // Пример фильтра: можно блокировать определённые сайты.
-            // if (request.url.contains('youtube.com')) {
-            //   return NavigationDecision.prevent;
-            // }
             return NavigationDecision.navigate;
           },
         ),
       )
-      // Загружаем начальный URL.
-      ..loadRequest(Uri.parse(_addressBarController.text));
+      // Вместо "flutter.dev" сразу загружаем HTML-описание
+      ..loadHtmlString('''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    * {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100vh;
+      text-align: center;
+      background-color: #f5f5f5;
+      color: #333;
+      padding: 40px;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      font-size: 2.5rem;
+      line-height: 1.8;
+      margin-bottom: 100px;
+    }
+  </style>
+  <title>Aurora Browser</title>
+</head>
+<body>
+  <h1>Aurora Browser</h1>
+  <p>This browser is useful for those who need to keep a page open
+     and prevent the screen from turning off.</p>
+</body>
+</html>
+''');
   }
 
   /// Загрузка нового URL из адресной строки.
@@ -163,17 +195,17 @@ class _BrowserPageState extends State<BrowserPage> {
             IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: _goBack,
-              tooltip: 'Назад',
+              tooltip: 'Backward',
             ),
             IconButton(
               icon: const Icon(Icons.arrow_forward),
               onPressed: _goForward,
-              tooltip: 'Вперёд',
+              tooltip: 'Forward',
             ),
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _reloadPage,
-              tooltip: 'Обновить',
+              tooltip: 'Refresh',
             ),
             Expanded(
               child: TextField(
@@ -181,26 +213,33 @@ class _BrowserPageState extends State<BrowserPage> {
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.go,
                 decoration: const InputDecoration(
-                  hintText: 'Введите адрес, напр. flutter.dev',
+                  hintText: 'Enter an url address',
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4.0),
+                  // contentPadding: EdgeInsets.symmetric(horizontal: 4.0),
                 ),
                 onSubmitted: (_) => _goToUrl(),
+                onTap: () {
+                  // Выделяем весь текст в поле при нажатии
+                  _addressBarController.selection = TextSelection(
+                    baseOffset: 0,
+                    extentOffset: _addressBarController.text.length,
+                  );
+                },
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: _goToUrl,
-              tooltip: 'Перейти',
-            ),
-            const SizedBox(width: 4),
+            // IconButton(
+            //   icon: const Icon(Icons.search),
+            //   onPressed: _goToUrl,
+            //   tooltip: 'Go',
+            // ),
+            // const SizedBox(width: 4),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: _showHistory,
-            tooltip: 'История',
+            tooltip: 'History',
           ),
         ],
       ),
@@ -211,7 +250,7 @@ class _BrowserPageState extends State<BrowserPage> {
       /// Плавающая кнопка справа снизу - включает/выключает Wakelock.
       floatingActionButton: FloatingActionButton(
         onPressed: _toggleWakelock,
-        tooltip: 'Wakelock (не гасить экран)',
+        tooltip: 'Wakelock',
         child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
       ),
     );
