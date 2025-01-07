@@ -1,179 +1,131 @@
 import 'package:flutter/material.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
-// Важная часть: c 4.x версии WebView разделён на контроллер и виджет.
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
-/// Корневое приложение
-class MyApp extends StatelessWidget {
+/// Корневое приложение со светлой и тёмной темами.
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  /// Режим темы (по умолчанию — системный).
+  ThemeMode _themeMode = ThemeMode.system;
+
+  /// Переключение (для примера) между светлой и тёмной.
+  void _toggleThemeMode() {
+    setState(() {
+      _themeMode =
+          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Aurora Browser',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: const BrowserPage(),
+      themeMode: _themeMode,
+      // Светлая тема
+      theme: ThemeData(
+        brightness: Brightness.light,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black, // цвет иконок и текста в AppBar
+        ),
+      ),
+      // Тёмная тема
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      home: BrowserPage(onToggleThemeMode: _toggleThemeMode),
     );
   }
 }
 
-/// Главная страница, содержащая WebView и элементы управления
+/// Главная страница «браузера».
 class BrowserPage extends StatefulWidget {
-  const BrowserPage({super.key});
+  final VoidCallback onToggleThemeMode;
+  const BrowserPage({super.key, required this.onToggleThemeMode});
 
   @override
   State<BrowserPage> createState() => _BrowserPageState();
 }
 
 class _BrowserPageState extends State<BrowserPage> {
-  /// Контроллер WebView (из пакета `webview_flutter`).
+  /// Контроллер WebView (начиная с пакета webview_flutter 4.x).
   late final WebViewController _webViewController;
-  double _progress = 0; // от 0 до 100
-  double _buttonPosition =
-      0.8; // Начальная позиция кнопки по вертикали (0.0 сверху, 1.0 снизу).
 
-  /// Текстовый контроллер для адресной строки.
-  final TextEditingController _addressBarController =
-      TextEditingController(text: 'info');
+  /// Текстовое поле для ввода URL.
+  final TextEditingController _addressBarController = TextEditingController();
 
-  /// Храним, включён ли Wakelock (true = экран не гаснет).
+  /// Показываем ли «стартовый экран» (пока пользователь не ввёл адрес).
+  bool _showStartPage = true;
+
+  /// Флаг ошибки (напр. 404).
+  bool _hasError = false;
+
+  /// Прогресс загрузки [0..100].
+  double _progress = 0;
+
+  /// Управление Wakelock (true = не гасить экран).
   bool _isWakelockEnabled = false;
 
-  /// Собственная история посещений (дополнительно к механизму `canGoBack/canGoForward`).
+  /// Позиция «плавающей» кнопки по вертикали (0.0 сверху, 1.0 снизу).
+  double _buttonPosition = 0.8;
+
+  /// Наша собственная история посещённых страниц.
   final List<String> _history = [];
 
   @override
   void initState() {
     super.initState();
 
-    // Создаём WebViewController и настраиваем его.
+    /// Инициируем WebViewController
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            _addressBarController.text = url;
+            setState(() {
+              _progress = 0;
+              _hasError = false;
+              _addressBarController.text = url; // если хотите сразу отразить
+            });
+          },
+          onProgress: (p) {
+            setState(() {
+              _progress = p.toDouble();
+            });
           },
           onPageFinished: (url) {
-            _addressBarController.text = url;
-            if (_history.isEmpty || _history.last != url) {
-              _history.add(url);
-            }
-          },
-          onProgress: (int progress) {
             setState(() {
-              _progress = progress.toDouble();
+              _progress = 100;
+              // Обновляем адресную строку
+              _addressBarController.text = url;
+              // Добавляем в историю, если такого URL ещё нет
+              if (_history.isEmpty || _history.last != url) {
+                _history.add(url);
+              }
             });
-            debugPrint('Page Load: $progress%');
           },
-          onNavigationRequest: (request) {
-            return NavigationDecision.navigate;
-          },
-          onWebResourceError: (WebResourceError error) {
-            // Загружаем простую HTML-страницу с текстом "404 Page not found"
-            _webViewController.loadHtmlString('''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8"/>
-  <title>404 Page not found</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-      color: #333;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-    }
-    p {
-      font-size: 1.5rem;
-      line-height: 1.5;
-    }
-  </style>
-</head>
-<body>
-  <h1>404 - Page not found</h1>
-  <p>The requested page does not exist or could not be loaded.</p>
-</body>
-</html>
-''');
+          onWebResourceError: (error) {
+            setState(() {
+              _hasError = true;
+            });
           },
         ),
-      )
-      // Вместо "flutter.dev" сразу загружаем HTML-описание
-      ..loadHtmlString('''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8"/>
-  <style>
-    * {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      height: 100vh;
-      text-align: center;
-      background-color: #f5f5f5;
-      color: #333;
-      padding: 40px;
-    }
-
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-    }
-
-    p {
-      font-size: 2.5rem;
-      line-height: 1.8;
-      margin-bottom: 100px;
-    }
-  </style>
-  <title>Aurora Browser</title>
-</head>
-<body>
-  <h1>Aurora Browser</h1>
-  <p>This browser is useful for those who need to keep a page open
-     and prevent the screen from turning off.</p>
-</body>
-</html>
-''');
-  }
-
-  /// Загрузка нового URL из адресной строки.
-  void _goToUrl() {
-    var url = _addressBarController.text.trim();
-
-    // Если пользователь не ввёл ни http:// ни https://
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
-      // Либо меняйте логику по желанию:
-      // например сначала пытаетесь http://, а при неудаче — https:// и т.д.
-    }
-
-    _webViewController.loadRequest(Uri.parse(url));
+      );
   }
 
   /// Переключить Wakelock (не давать экрану гаснуть).
@@ -189,15 +141,129 @@ class _BrowserPageState extends State<BrowserPage> {
     });
   }
 
-  /// Открыть историю в BottomSheet.
+  /// Загрузка URL из адресной строки.
+  void _goToUrl() {
+    final text = _addressBarController.text.trim();
+    if (text.isEmpty) return;
+
+    // Если не начинается с http/https, добавим https://
+    var url = text;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
+    }
+
+    setState(() {
+      _showStartPage = false;
+      _hasError = false;
+    });
+    _webViewController.loadRequest(Uri.parse(url));
+  }
+
+  /// Экран «стартовый» (нативный), без WebView.
+  Widget _buildStartPage(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final bgColor = brightness == Brightness.dark ? Colors.black : Colors.white;
+    final fgColor = brightness == Brightness.dark ? Colors.white : Colors.black;
+
+    return Container(
+      color: bgColor,
+      child: Center(
+        child: Text(
+          'Welcome to Aurora awake browser. \nEnter an url in address bar',
+          style: TextStyle(color: fgColor, fontSize: 18),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  /// Экран «ошибка» (нативный) — напр. 404 / недоступно.
+  Widget _buildErrorPage(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final bgColor = brightness == Brightness.dark ? Colors.black : Colors.white;
+    final fgColor = brightness == Brightness.dark ? Colors.white : Colors.black;
+
+    return Container(
+      color: bgColor,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '404 - Page not found',
+              style: TextStyle(color: fgColor, fontSize: 24),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Обычная страница с WebView (если всё хорошо).
+  Widget _buildWebView() {
+    return Stack(
+      children: [
+        WebViewWidget(controller: _webViewController),
+        // Прогресс-бар (линейный), если < 100%
+        if (_progress < 100) LinearProgressIndicator(value: _progress / 100),
+      ],
+    );
+  }
+
+  /// «Плавающая» FAB-кнопка, которую можно таскать вверх/вниз.
+  Widget _buildDraggableFab() {
+    return Positioned(
+      top: _buttonPosition * MediaQuery.of(context).size.height - 30,
+      right: 16,
+      child: GestureDetector(
+        onVerticalDragUpdate: (details) {
+          setState(() {
+            _buttonPosition +=
+                details.delta.dy / MediaQuery.of(context).size.height;
+            // Ограничим в диапазоне [0..1]
+            _buttonPosition = _buttonPosition.clamp(0.0, 1.0);
+          });
+        },
+        child: FloatingActionButton(
+          onPressed: _toggleWakelock,
+          tooltip: 'Wakelock',
+          child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
+        ),
+      ),
+    );
+  }
+
+  /// Кнопка «Назад» (WebView).
+  Future<void> _goBack() async {
+    if (await _webViewController.canGoBack()) {
+      await _webViewController.goBack();
+    }
+  }
+
+  /// Кнопка «Вперёд» (WebView).
+  Future<void> _goForward() async {
+    if (await _webViewController.canGoForward()) {
+      await _webViewController.goForward();
+    }
+  }
+
+  /// Кнопка «Обновить» (WebView).
+  Future<void> _reloadPage() async {
+    if (!_showStartPage && !_hasError) {
+      await _webViewController.reload();
+    }
+  }
+
+  /// Показать «Историю» (ListView внутри BottomSheet).
   void _showHistory() {
+    // Можно отфильтровать "about:blank" и т.д. при желании.
+    final filteredHistory =
+        _history.where((url) => url != 'about:blank').toList();
+
     showModalBottomSheet<void>(
       context: context,
       builder: (BuildContext ctx) {
-        // Фильтруем список, исключая "about:blank"
-        final filteredHistory =
-            _history.where((url) => url != 'about:blank').toList();
-
         return ListView.builder(
           itemCount: filteredHistory.length,
           itemBuilder: (context, index) {
@@ -205,8 +271,12 @@ class _BrowserPageState extends State<BrowserPage> {
             return ListTile(
               title: Text(url),
               onTap: () {
-                Navigator.pop(context); // Закрываем BottomSheet
-                _addressBarController.text = url;
+                Navigator.pop(context); // Закрыть BottomSheet
+                setState(() {
+                  _showStartPage = false;
+                  _hasError = false;
+                  _addressBarController.text = url;
+                });
                 _webViewController.loadRequest(Uri.parse(url));
               },
             );
@@ -216,136 +286,71 @@ class _BrowserPageState extends State<BrowserPage> {
     );
   }
 
-  /// Кнопка «Назад» (шаг назад в истории WebView).
-  Future<void> _goBack() async {
-    if (await _webViewController.canGoBack()) {
-      await _webViewController.goBack();
-    }
-  }
-
-  /// Кнопка «Вперёд» (шаг вперёд в истории WebView).
-  Future<void> _goForward() async {
-    if (await _webViewController.canGoForward()) {
-      await _webViewController.goForward();
-    }
-  }
-
-  /// Кнопка «Обновить» (обновляет текущую страницу).
-  Future<void> _reloadPage() async {
-    await _webViewController.reload();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      /// Верхняя панель с кнопками и адресной строкой.
       appBar: AppBar(
-        // Делим AppBar на две части: иконки управления + поле для URL + кнопка «Go».
         title: Row(
           children: [
+            // // Переключатель темы
+            // IconButton(
+            //   icon: const Icon(Icons.brightness_6),
+            //   onPressed: widget.onToggleThemeMode,
+            // ),
+            // Кнопка «Назад»
             IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: _goBack,
-              tooltip: 'Backward',
+              tooltip: 'Back',
             ),
+            // Кнопка «Вперёд»
             IconButton(
               icon: const Icon(Icons.arrow_forward),
               onPressed: _goForward,
               tooltip: 'Forward',
             ),
+            // Кнопка «Обновить»
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _reloadPage,
               tooltip: 'Refresh',
             ),
+            // Поле для ввода
             Expanded(
               child: TextField(
                 controller: _addressBarController,
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.go,
-                decoration: const InputDecoration(
-                  hintText: 'Enter an url address',
-                  border: InputBorder.none,
-                  // contentPadding: EdgeInsets.symmetric(horizontal: 4.0),
-                ),
                 onSubmitted: (_) => _goToUrl(),
-                onTap: () {
-                  // Выделяем весь текст в поле при нажатии
-                  _addressBarController.selection = TextSelection(
-                    baseOffset: 0,
-                    extentOffset: _addressBarController.text.length,
-                  );
-                },
+                decoration: const InputDecoration(
+                  hintText: 'Enter url',
+                  border: InputBorder.none,
+                ),
               ),
             ),
-            // IconButton(
-            //   icon: const Icon(Icons.search),
-            //   onPressed: _goToUrl,
-            //   tooltip: 'Go',
-            // ),
-            // const SizedBox(width: 4),
+            // Кнопка «History»
+            IconButton(
+              icon: const Icon(Icons.history),
+              onPressed: _showHistory,
+              tooltip: 'History',
+            ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: _showHistory,
-            tooltip: 'History',
-          ),
-        ],
       ),
-
-      /// Сам WebView на всю оставшуюся часть экрана.
       body: Stack(
         children: [
-          Column(
-            children: [
-              if (_progress < 100)
-                LinearProgressIndicator(value: _progress / 100),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: _reloadPage, // Функция обновления
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: SizedBox(
-                      height: MediaQuery.of(context).size.height,
-                      child: WebViewWidget(controller: _webViewController),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          // Перетаскиваемая кнопка
-          Positioned(
-            top: _buttonPosition * MediaQuery.of(context).size.height -
-                30, // Центр кнопки
-            right: 16,
-            child: GestureDetector(
-              onVerticalDragUpdate: (details) {
-                setState(() {
-                  _buttonPosition +=
-                      details.delta.dy / MediaQuery.of(context).size.height;
-                  _buttonPosition =
-                      _buttonPosition.clamp(0.0, 1.0); // Ограничиваем область
-                });
-              },
-              child: FloatingActionButton(
-                onPressed: _toggleWakelock,
-                tooltip: 'Wakelock',
-                child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
-              ),
-            ),
-          ),
+          // Выбираем, что показывать:
+          if (_showStartPage)
+            _buildStartPage(context)
+          else if (_hasError)
+            _buildErrorPage(context)
+          else
+            _buildWebView(),
+
+          // Перетаскиваемая FAB
+          _buildDraggableFab(),
         ],
       ),
-
-      // /// Плавающая кнопка справа снизу - включает/выключает Wakelock.
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: _toggleWakelock,
-      //   tooltip: 'Wakelock',
-      //   child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
-      // ),
     );
   }
 }
