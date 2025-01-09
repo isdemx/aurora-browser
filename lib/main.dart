@@ -155,8 +155,8 @@ class _BrowserPageState extends State<BrowserPage>
     final random = Random();
 
     // Выбираем случайным образом
-    _startBackground = AuroraCatcherPage();
-    _errorBackground = AuroraCatcherPage();
+    _startBackground = backgrounds[random.nextInt(backgrounds.length)];
+    _errorBackground = backgrounds[random.nextInt(backgrounds.length)];
   }
 
   Future<void> _init() async {

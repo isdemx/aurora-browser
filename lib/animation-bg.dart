@@ -487,7 +487,7 @@ class _VerticalAuroraAnimationState extends State<VerticalAuroraAnimation>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 8),
     )..repeat(reverse: true);
 
     // Генерация полос
@@ -914,7 +914,7 @@ class _AuroraCatcherPageState extends State<AuroraCatcherPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        content: Text('Your score: $_score\nBest score: $_bestScore'),
+        content: Text('Game Over.\nYour score: $_score\nBest score: $_bestScore'),
         actions: [
           TextButton(
             onPressed: () {
