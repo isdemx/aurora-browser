@@ -487,7 +487,7 @@ class _VerticalAuroraAnimationState extends State<VerticalAuroraAnimation>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
 
     // Генерация полос
@@ -890,7 +890,7 @@ class _AuroraCatcherPageState extends State<AuroraCatcherPage> {
         Timer.periodic(const Duration(milliseconds: 400), _generateParticle);
     _gameTimer = Timer.periodic(const Duration(milliseconds: 16),
         (_) => setState(() => _updateParticles()));
-    _shrinkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _shrinkTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (_minEnergy < 49 && _maxEnergy > 51) {
         setState(() {
           _minEnergy++;
@@ -951,7 +951,7 @@ class _AuroraCatcherPageState extends State<AuroraCatcherPage> {
     final caughtParticles = _particles
         .where((particle) =>
             (particle.position - _playerPosition).distance <
-            _playerRadius + particle.radius)
+            _playerRadius + (particle.radius / 2))
         .toList();
 
     for (final particle in caughtParticles) {
