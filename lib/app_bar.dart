@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
+class GradientAppBar extends StatefulWidget implements PreferredSizeWidget {
   final TextEditingController addressBarController;
   final FocusNode addressFocusNode;
   final bool isFavorite;
@@ -32,15 +32,52 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
+  _GradientAppBarState createState() => _GradientAppBarState();
+}
+
+class _GradientAppBarState extends State<GradientAppBar> {
+  bool _hasFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.addressFocusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void dispose() {
+    widget.addressFocusNode.removeListener(_handleFocusChange);
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (widget.addressFocusNode.hasFocus && !_hasFocused) {
+      // Выделяем весь текст только при первом фокусе
+      widget.addressBarController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: widget.addressBarController.text.length,
+      );
+      setState(() {
+        _hasFocused = true;
+      });
+    } else if (!widget.addressFocusNode.hasFocus) {
+      // Сбрасываем состояние при потере фокуса
+      setState(() {
+        _hasFocused = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: gradientAnimation,
+      animation: widget.gradientAnimation,
       builder: (context, child) {
         return Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                gradientAnimation.value ?? Colors.blueGrey,
+                widget.gradientAnimation.value ?? Colors.blueGrey,
                 Colors.black54,
               ],
               begin: Alignment.topLeft,
@@ -55,7 +92,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                     Icons.arrow_back,
                     color: Colors.white,
                   ),
-                  onPressed: onBackPressed,
+                  onPressed: widget.onBackPressed,
                   tooltip: 'Back',
                 ),
                 IconButton(
@@ -63,7 +100,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                     Icons.arrow_forward,
                     color: Colors.white,
                   ),
-                  onPressed: onForwardPressed,
+                  onPressed: widget.onForwardPressed,
                   tooltip: 'Forward',
                 ),
                 IconButton(
@@ -71,17 +108,17 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                     Icons.refresh,
                     color: Colors.white,
                   ),
-                  onPressed: onRefreshPressed,
+                  onPressed: widget.onRefreshPressed,
                   tooltip: 'Refresh',
                 ),
                 // Текстовое поле
                 Expanded(
                   child: TextField(
-                    focusNode: addressFocusNode,
-                    controller: addressBarController,
-                    keyboardType: TextInputType.url,
+                    focusNode: widget.addressFocusNode,
+                    controller: widget.addressBarController,
+                    keyboardType: TextInputType.text,
                     textInputAction: TextInputAction.go,
-                    onSubmitted: onUrlSubmitted,
+                    onSubmitted: widget.onUrlSubmitted,
                     style: const TextStyle(color: Colors.white),
                     decoration: const InputDecoration(
                       hintText: 'Enter URL',
@@ -92,11 +129,11 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
                 GestureDetector(
-                  onTap: onFavoriteToggle,
-                  onLongPress: onFavoritesLongPress,
+                  onTap: widget.onFavoriteToggle,
+                  onLongPress: widget.onFavoritesLongPress,
                   child: Icon(
-                    isFavorite ? Icons.star : Icons.star_border,
-                    color: isFavorite ? Colors.yellow : Colors.white,
+                    widget.isFavorite ? Icons.star : Icons.star_border,
+                    color: widget.isFavorite ? Colors.yellow : Colors.white,
                   ),
                 ),
                 IconButton(
@@ -104,7 +141,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                     Icons.history,
                     color: Colors.white,
                   ),
-                  onPressed: onHistoryPressed,
+                  onPressed: widget.onHistoryPressed,
                   tooltip: 'History',
                 ),
               ],

@@ -305,10 +305,11 @@ class _BrowserPageState extends State<BrowserPage>
     final text = _addressBarController.text.trim();
     if (text.isEmpty) return;
 
-    // Prepend https:// if missing
-    var url = text;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
+    String url;
+    if (isUrl(text)) {
+      url = text.startsWith('http') ? text : 'https://$text';
+    } else {
+      url = buildSearchQuery(text);
     }
 
     setState(() {
@@ -349,7 +350,7 @@ class _BrowserPageState extends State<BrowserPage>
                     children: [
                       TextField(
                         controller: _addressBarController,
-                        keyboardType: TextInputType.url,
+                        keyboardType: TextInputType.text,
                         textInputAction: TextInputAction.go,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
