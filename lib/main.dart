@@ -145,13 +145,18 @@ class _BrowserPageState extends State<BrowserPage>
       const AnimatedBackground(), // ваш старый фон с пузырями
       const AnimatedBackground2(), // новый фон с квадратиками
       const AnimatedBackground3(), // новый фон с кружками
+      const NorthernLightsAnimation(), // Северное 1
+      const VerticalAuroraAnimation(), // Северное 2
+      const PulsatingCirclesBackground(), // Северное 3
+      const FractalAurora(), // Северное ФРАКталы
+      const AuroraCatcherPage(), // Северное ФРАКталы
     ];
 
     final random = Random();
 
     // Выбираем случайным образом
-    _startBackground = backgrounds[random.nextInt(backgrounds.length)];
-    _errorBackground = backgrounds[random.nextInt(backgrounds.length)];
+    _startBackground = AuroraCatcherPage();
+    _errorBackground = AuroraCatcherPage();
   }
 
   Future<void> _init() async {
@@ -345,7 +350,7 @@ class _BrowserPageState extends State<BrowserPage>
               children: [
                 // Блок с полем ввода вверху
 
-                if (!_favorites.isEmpty)
+                if (_favorites.isNotEmpty)
                   Column(
                     children: [
                       TextField(
