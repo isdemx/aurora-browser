@@ -385,7 +385,7 @@ class _BrowserPageState extends State<BrowserPage>
                   MessageWithInput(
                     message: 'Welcome to Aurora Awake Browser!\n\n'
                         'This is a miniature web browser featuring an always-awake mode.\n'
-                        'Enter url or prompt to start\n',
+                        'Enter prompt or URL to start\n',
                     hintText: 'Enter a new URL or prompt',
                     controller: _addressBarController,
                     onGoPressed: _goToUrl,

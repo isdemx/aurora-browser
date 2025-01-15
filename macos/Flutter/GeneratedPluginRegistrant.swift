@@ -2,6 +2,7 @@
 //  Generated file. Do not edit.
 //
 
+import FlutterMacOS
 import Foundation
 
 import package_info_plus
