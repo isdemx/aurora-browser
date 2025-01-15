@@ -359,7 +359,7 @@ class _BrowserPageState extends State<BrowserPage>
                         textInputAction: TextInputAction.go,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          hintText: 'Enter URL',
+                          hintText: 'Enter URL or search prompt',
                           hintStyle: const TextStyle(color: Colors.white54),
                           filled: true,
                           fillColor: Colors.white.withOpacity(0.1),
@@ -385,8 +385,8 @@ class _BrowserPageState extends State<BrowserPage>
                   MessageWithInput(
                     message: 'Welcome to Aurora Awake Browser!\n\n'
                         'This is a miniature web browser featuring an always-awake mode.\n'
-                        'Enter url to start\n',
-                    hintText: 'Enter a new URL',
+                        'Enter url or prompt to start\n',
+                    hintText: 'Enter a new URL or prompt',
                     controller: _addressBarController,
                     onGoPressed: _goToUrl,
                     onSubmitted: (_) => _goToUrl(),

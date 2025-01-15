@@ -47,7 +47,7 @@ class MessageWithInput extends StatelessWidget {
               const SizedBox(height: 20),
               TextField(
                 controller: controller,
-                keyboardType: TextInputType.url,
+                keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.go,
                 style: TextStyle(color: textColor),
                 decoration: InputDecoration(

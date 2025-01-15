@@ -121,7 +121,7 @@ class _GradientAppBarState extends State<GradientAppBar> {
                     onSubmitted: widget.onUrlSubmitted,
                     style: const TextStyle(color: Colors.white),
                     decoration: const InputDecoration(
-                      hintText: 'Enter URL',
+                      hintText: 'Enter URL or search prompt',
                       hintStyle: TextStyle(color: Colors.white54),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(horizontal: 8.0),
