@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
 import 'dart:async';
 
@@ -902,6 +903,7 @@ class _AuroraCatcherPageState extends State<AuroraCatcherPage> {
   }
 
   void _endGame() {
+    HapticFeedback.heavyImpact();
     _particleTimer.cancel();
     _gameTimer.cancel();
     _shrinkTimer.cancel();
@@ -914,7 +916,8 @@ class _AuroraCatcherPageState extends State<AuroraCatcherPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        content: Text('Game Over.\nYour score: $_score\nBest score: $_bestScore'),
+        content:
+            Text('Game Over.\nYour score: $_score\nBest score: $_bestScore'),
         actions: [
           TextButton(
             onPressed: () {
@@ -960,6 +963,7 @@ class _AuroraCatcherPageState extends State<AuroraCatcherPage> {
       _playerRadius += particle.isGood
           ? particle.radius / 10
           : 0; // Adjust radius based on particle size
+      HapticFeedback.lightImpact();
       _score += 1; // Increment score by 1 for each particle caught
       _particles.remove(particle);
     }
@@ -1090,6 +1094,145 @@ class _AuroraCatcherPainter extends CustomPainter {
       height: playerRadius * 1.5,
     );
     canvas.drawOval(playerRect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class IcyNorthernLights extends StatefulWidget {
+  const IcyNorthernLights({Key? key}) : super(key: key);
+
+  @override
+  _IcyNorthernLightsState createState() => _IcyNorthernLightsState();
+}
+
+class _IcyNorthernLightsState extends State<IcyNorthernLights>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<NorthernLightStripe> _stripes;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat(reverse: true);
+
+    _stripes = List.generate(
+      6,
+      (index) => NorthernLightStripe(
+        amplitude: Random().nextDouble() * 100 + 50,
+        baseHeight: Random().nextDouble() * 150 + 100,
+        color: Color.lerp(
+          Colors.greenAccent,
+          Colors.blueAccent,
+          Random().nextDouble(),
+        )!,
+        speed: Random().nextDouble() * 0.3 + 0.1,
+        offset: Random().nextDouble() * pi * 2,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: _IcyNorthernLightsPainter(
+            stripes: _stripes,
+            animationValue: _controller.value,
+          ),
+          child: Container(),
+        );
+      },
+    );
+  }
+}
+
+class NorthernLightStripe {
+  final double amplitude;
+  final double baseHeight;
+  final Color color;
+  final double speed;
+  final double offset;
+
+  NorthernLightStripe({
+    required this.amplitude,
+    required this.baseHeight,
+    required this.color,
+    required this.speed,
+    required this.offset,
+  });
+}
+
+class _IcyNorthernLightsPainter extends CustomPainter {
+  final List<NorthernLightStripe> stripes;
+  final double animationValue;
+
+  _IcyNorthernLightsPainter(
+      {required this.stripes, required this.animationValue});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+
+    // Draw icy ground
+    paint.shader = ui.Gradient.linear(
+      Offset(0, size.height * 0.8),
+      Offset(0, size.height),
+      [
+        Colors.white,
+        Colors.blueGrey.shade300,
+      ],
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, size.height * 0.8, size.width, size.height * 0.2),
+      paint,
+    );
+
+    // Draw northern lights
+    for (final stripe in stripes) {
+      paint.shader = ui.Gradient.linear(
+        Offset(0, size.height - stripe.baseHeight),
+        Offset(0, size.height - stripe.baseHeight - stripe.amplitude),
+        [
+          stripe.color.withOpacity(0.2),
+          stripe.color.withOpacity(0.6),
+          stripe.color.withOpacity(0.2),
+        ],
+        [0.0, 0.5, 1.0],
+      );
+
+      final path = Path();
+      for (double x = 0; x <= size.width; x += 10) {
+        final y = size.height -
+            stripe.baseHeight -
+            sin(animationValue * 2 * pi * stripe.speed +
+                    stripe.offset +
+                    x * 0.02) *
+                stripe.amplitude;
+        if (x == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      path.lineTo(size.width, size.height);
+      path.lineTo(0, size.height);
+      path.close();
+
+      canvas.drawPath(path, paint);
+    }
   }
 
   @override

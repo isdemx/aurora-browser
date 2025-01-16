@@ -39,7 +39,7 @@ class MessageWithInput extends StatelessWidget {
               Text(
                 message,
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 16,
                   color: textColor,
                 ),
                 textAlign: TextAlign.center,

@@ -7,8 +7,10 @@ import 'package:midnight_sun/helpers.dart';
 import 'package:midnight_sun/message-with-input.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart'; // Для управления системным UI
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -111,10 +113,31 @@ class _BrowserPageState extends State<BrowserPage>
   late AnimationController _headerController;
   late Animation<Color?> _headerColorAnimation;
 
+  bool _isTutorialShown = false;
+
+  bool _isAppBarVisible = true; // Новый флаг
+
+  bool _isFabHidden = false;
+
   @override
   void dispose() {
     _headerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    // prefs.remove('tutorialShown');
+    _isTutorialShown = prefs.getBool('tutorialShown') ?? false;
+    setState(() {});
+  }
+
+  void _completeTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('tutorialShown', true);
+    setState(() {
+      _isTutorialShown = true;
+    });
   }
 
   @override
@@ -122,6 +145,7 @@ class _BrowserPageState extends State<BrowserPage>
     super.initState();
 
     _init();
+    _checkTutorial();
 
     _addressFocusNode.addListener(() {
       setState(() {
@@ -150,13 +174,49 @@ class _BrowserPageState extends State<BrowserPage>
       const PulsatingCirclesBackground(), // Северное 3
       const FractalAurora(), // Северное ФРАКталы
       const AuroraCatcherPage(), // Северное ФРАКталы
+      const IcyNorthernLights(), // Северное ФРАКталы
     ];
 
     final random = Random();
 
     // Выбираем случайным образом
-    _startBackground = backgrounds[random.nextInt(backgrounds.length)];
-    _errorBackground = backgrounds[random.nextInt(backgrounds.length)];
+    _startBackground = AuroraCatcherPage();
+    _errorBackground = AuroraCatcherPage();
+  }
+
+  Widget _buildTutorialOverlay() {
+    if (_isTutorialShown) return const SizedBox.shrink();
+
+    return Stack(
+      children: [
+        Container(
+          color: Colors.black.withOpacity(0.5), // Затемнение
+        ),
+        Positioned(
+          top: MediaQuery.of(context).size.height * 0.4, // Позиция облака
+          right: 16,
+          child: Stack(
+            children: [
+              // Фон с хвостиком
+              CustomPaint(
+                painter: SpeechBubblePainter(color: Colors.deepPurpleAccent!),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  width: MediaQuery.of(context).size.width * 0.8,
+                  child: const Text(
+                    'Tap the button to enable Awake mode.\n'
+                    'Long press to open the menu.\n'
+                    'Swipe right to hide the button.\n'
+                    'Tap the button to close this tutorial.',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _init() async {
@@ -173,7 +233,16 @@ class _BrowserPageState extends State<BrowserPage>
     });
 
     // Initialize the WebViewController
-    _webViewController = WebViewController()
+    final PlatformWebViewControllerCreationParams params;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
+    _webViewController = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -192,9 +261,7 @@ class _BrowserPageState extends State<BrowserPage>
           onPageFinished: (url) {
             setState(() {
               _progress = 100;
-              // Update the address bar
               _addressBarController.text = url;
-              // Add to history if it's not the same as the last entry
               if (_history.isEmpty || _history.last != url) {
                 _history.add(url);
               }
@@ -357,7 +424,9 @@ class _BrowserPageState extends State<BrowserPage>
                         controller: _addressBarController,
                         keyboardType: TextInputType.text,
                         textInputAction: TextInputAction.go,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(
+                          color: Colors.white,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Enter URL or search prompt',
                           hintStyle: const TextStyle(color: Colors.white54),
@@ -441,25 +510,155 @@ class _BrowserPageState extends State<BrowserPage>
     );
   }
 
-  /// Draggable floating action button.
   Widget _buildDraggableFab() {
-    return Positioned(
-      top: _buttonPosition * MediaQuery.of(context).size.height - 30,
-      right: 16,
-      child: GestureDetector(
-        onVerticalDragUpdate: (details) {
-          setState(() {
-            _buttonPosition +=
-                details.delta.dy / MediaQuery.of(context).size.height;
-            _buttonPosition = _buttonPosition.clamp(0.0, 1.0);
-          });
-        },
-        child: FloatingActionButton(
-          onPressed: _toggleWakelock,
-          tooltip: 'Wakelock',
-          child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
-        ),
-      ),
+    double buttonLeftPosition = MediaQuery.of(context).size.width - 80;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Positioned(
+          top: _buttonPosition *
+                  (MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      MediaQuery.of(context).padding.bottom) -
+              30,
+          left: _isFabHidden
+              ? MediaQuery.of(context).size.width - 20
+              : buttonLeftPosition,
+          child: GestureDetector(
+            onVerticalDragUpdate: (details) {
+              setState(() {
+                _buttonPosition +=
+                    details.delta.dy / MediaQuery.of(context).size.height;
+                _buttonPosition = _buttonPosition.clamp(
+                  MediaQuery.of(context).padding.top /
+                      MediaQuery.of(context).size.height,
+                  1.0 -
+                      MediaQuery.of(context).padding.bottom /
+                          MediaQuery.of(context).size.height,
+                );
+              });
+            },
+            onLongPress: () {
+              // Включение вибрации
+              HapticFeedback.lightImpact();
+              // Показываем меню
+              _showFabMenu(context);
+            },
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                if (details.delta.dx > 10) {
+                  // Свайп вправо
+                  _isFabHidden = true;
+                } else if (details.delta.dx < -10) {
+                  // Свайп влево
+                  _isFabHidden = false;
+                }
+              });
+            },
+            onTap: () {
+              if (_isFabHidden) {
+                setState(() {
+                  _isFabHidden = false;
+                });
+              }
+            },
+            child: AnimatedOpacity(
+              opacity: _isFabHidden ? 0.5 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              child: FloatingActionButton(
+                onPressed: () {
+                  _toggleWakelock();
+                  if (!_isTutorialShown) {
+                    _completeTutorial();
+                  }
+                },
+                child: Icon(_isWakelockEnabled ? Icons.lock : Icons.lock_open),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFabMenu(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Закрыть при нажатии за пределы
+      builder: (BuildContext dialogContext) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width:
+                  MediaQuery.of(context).size.width * 0.8, // 80% ширины экрана
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.grey[900], // Темный фон
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: StatefulBuilder(
+                builder: (BuildContext localContext, StateSetter setState) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Fullscreen с чекбоксом
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Fullscreen',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          Checkbox(
+                            value: !_isAppBarVisible,
+                            onChanged: (value) {
+                              // Обновляем состояние глобально
+                              setState(() {
+                                _isAppBarVisible = !value!;
+                              });
+                              this.setState(() {
+                                // Полное обновление родительского виджета
+                                if (value!) {
+                                  SystemChrome.setEnabledSystemUIMode(
+                                      SystemUiMode.immersive);
+                                } else {
+                                  SystemChrome.setEnabledSystemUIMode(
+                                      SystemUiMode.edgeToEdge);
+                                }
+                              });
+                              Navigator.pop(dialogContext); // Закрываем меню
+                            },
+                          ),
+                        ],
+                      ),
+                      // const Divider(color: Colors.white54),
+                      // TextButton(
+                      //   onPressed: () {
+                      //     print('Awake Timer Clicked');
+                      //     Navigator.pop(dialogContext); // Закрываем диалог
+                      //   },
+                      //   child: const Text(
+                      //     'Awake Timer',
+                      //     style: TextStyle(color: Colors.white),
+                      //   ),
+                      // ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -541,8 +740,9 @@ class _BrowserPageState extends State<BrowserPage>
   Widget build(BuildContext context) {
     return Scaffold(
       // Если `_showStartPage` или `_hasError`, AppBar = null
-      appBar:
-          (_showStartPage || _hasError) ? null : _buildAnimatedGradientAppBar(),
+      appBar: (_showStartPage || _hasError || !_isAppBarVisible)
+          ? null
+          : _buildAnimatedGradientAppBar(),
       body: Stack(
         children: [
           if (_showStartPage)
@@ -551,9 +751,45 @@ class _BrowserPageState extends State<BrowserPage>
             _buildErrorPage(context)
           else
             _buildWebView(),
+          if (!_isTutorialShown) _buildTutorialOverlay(),
           _buildDraggableFab(),
         ],
       ),
     );
+  }
+}
+
+class SpeechBubblePainter extends CustomPainter {
+  final Color color;
+
+  SpeechBubblePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(0, 20)
+      ..lineTo(0, size.height - 20) // Левая нижняя кривая
+      ..quadraticBezierTo(0, size.height, 20, size.height)
+      ..lineTo(size.width * 0.6, size.height) // Линия до хвостика
+      ..lineTo(size.width * 0.8, size.height + 30) // Вниз (хвостик)
+      ..lineTo(size.width * 0.8, size.height) // Обратно вверх
+      ..lineTo(size.width - 20, size.height) // Правая нижняя кривая
+      ..quadraticBezierTo(size.width, size.height, size.width, size.height - 20)
+      ..lineTo(size.width, 20) // Правая вертикальная линия
+      ..quadraticBezierTo(size.width, 0, size.width - 20, 0)
+      ..lineTo(20, 0) // Верхняя горизонтальная линия
+      ..quadraticBezierTo(0, 0, 0, 20) // Левая верхняя кривая
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }
